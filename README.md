@@ -1,19 +1,20 @@
-
-
 # cache magic
 
-This package adds `%cache` line-magic to ipython kernels in jupyter notebooks.
+This package adds `%cache` line-magic to Jupyter notebooks.
+
+## Warning!!!
+The author of this Python package makes no commitment to maintain it.  It was forked from [this project](https://github.com/SmartDataInnovationLab/ipython-cache) and you're probably better off using that! That said, if you like the tweaks I made (added compression, bug fixes, style preferences, etc.), feel free to use it how you see fit. Just be sure to respect the original author's license (see LICENSE copied [here](https://github.com/pyython/cache-magic/blob/master/LICENSE) for your convenience).
 
 ## Quickstart
 
-* The pip-package is called `ipython-cache`
+* The pip-package is called `cache-magic`
 * The python module is called `cache_magic`
 * The magic is called `%cache`
 
-So you can run the magic by entering this into an ipython-cell:
+So you can run the magic by entering this into an Jupyter cell:
 
 ```python
-!pip install ipython-cache
+!pip install cache-magic
 import cache_magic
 %cache a = 1+1
 %cache
@@ -33,7 +34,7 @@ import cache_magic
 ```bash
 conda create -n test
 source activate test
-conda install -c juergens ipython-cache
+conda install -c pyython cache-magic
 jupyter notebook
 ```
 
@@ -55,12 +56,12 @@ The magic turns this example into something like this (if there was no ipython-k
 
 ```python
 try:
-  with open("myVar.txt", 'rb') as fp:
-    myVar = pickle.loads(fp.read())
+  with open("myVar.pkl.gz", 'rb') as fp:
+    myVar = pickle.loads(zlib.decompress(fp.read()))
 except:
   myVar = someSlowCalculation(some, "parameters")
-  with open("myVar.txt", 'wb') as fp:
-    pickle.dump(myVar, fp)
+  with open("myVar.pkl.gz", 'wb') as fp:
+    fp.write(zlib.compress(pickle.dumps(myVar)))
 ```
 
 ## general form
@@ -106,7 +107,7 @@ deletes all cached values for all variables
 
 ## where is the cache stored?
 
-In the directory where the kernel was started (usually where the notebook is located)  in a subfolder called `.cache_magic`
+In the directory where the kernel was started (usually where the notebook is located)  in a subfolder called `.cache`
 
 
 # developer Notes
@@ -130,20 +131,20 @@ restview --pypi-strict README.rst
 rm -r dist
 python setup.py sdist
 twine upload dist/* -r testpypi
-firefox https://testpypi.python.org/pypi/ipython-cache
+firefox https://testpypi.python.org/pypi/cache-magic
 twine upload dist/*
 ```
 
 test install from testpypi
 
 ```bash
-pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple ipython_cache --no-cache-dir --user
+pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple cache-magic --no-cache-dir --user
 ```
 
 test installation
 
 ```bash
-sudo pip install ipython_cache --no-cache-dir --user
+sudo pip install cache-magic --no-cache-dir --user
 ```
 
 ## editable import
@@ -165,7 +166,7 @@ reload(cache_magic)
 Alternatively (if you don't want to install python, jupyter & co), you can use the docker-compose.yml for development:
 
 ```bash
-cd ipython-cache
+cd cache-magic
 docker-compose up
 ```
 
@@ -176,9 +177,9 @@ requires the bash with latest anaconda on path
 ```bash
 bash
 mkdir test && cd test
-conda skeleton pypi ipython-cache
+conda skeleton pypi cache-magic
 conda config --set anaconda_upload yes
-conda-build ipython-cache -c conda-forge
+conda-build cache-magic -c conda-forge
 ```
 
 ## running tests
@@ -188,8 +189,8 @@ bash
 conda remove --name test --all
 conda env create -f test/environment.yml
 source activate test
-conda remove ipython-cache
-pip uninstall ipython_cache
+conda remove cache-magic
+pip uninstall cache-magic
 pip install -e .
 ./test/run_example.py
 ```

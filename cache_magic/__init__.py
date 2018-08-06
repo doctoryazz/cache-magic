@@ -8,6 +8,7 @@ import datetime
 import shutil
 import ast
 import astunparse
+import zlib
 from tabulate import tabulate
 from IPython.display import HTML, display
 
@@ -24,7 +25,7 @@ class CacheCallException(Exception):
 
 class CacheCall:
     """
-    The CacheCall class handles a single call to the cache-magic.
+    The CacheCall class handles a single call to the cache magic.
 
     Its attributes are all derived from or related to the line, for which the magic is called. And its methods handle
     the execution of the call.
@@ -33,30 +34,30 @@ class CacheCall:
     def __init__(self, shell):
         self.shell = shell
 
-    def __call__(self, version="*", reset=False, var_name="", var_value="", show_all=False, set_debug=None):
+    def __call__(self, version="0", reset=False, var_name="", var_value="", show_all=False, set_debug=None):
 
         if set_debug is not None:
             global debug
             debug = set_debug
 
         user_ns = self.shell.user_ns
-        base_dir = self.shell.starting_dir + "/.cache_magic/"
+        base_dir = self.shell.starting_dir + "/.cache/"
 
         if show_all:
             self._show_all(base_dir)
             return
 
         var_folder_path = os.path.join(base_dir, var_name)
-        var_data_path = os.path.join(var_folder_path, "data.txt")
-        var_info_path = os.path.join(var_folder_path, "info.txt")
+        var_data_path = os.path.join(var_folder_path, "data.pkl.gz")
+        var_info_path = os.path.join(var_folder_path, "info.pkl")
 
         if reset:
             if var_name:
-                print("resetting cached values for " + var_name)
+                print("Resetting cached values for " + var_name)
                 self._reset_var(var_folder_path)
                 # no return, because it might be a forced recalculation
             else:
-                print("resetting entire cache")
+                print("Resetting entire cache")
                 self._reset_all(base_dir)
                 return
 
@@ -68,23 +69,23 @@ class CacheCall:
         stored_value = None
 
         try:
-            info = self.get_from_file(var_info_path)
+            info = self.get_info_from_file(var_info_path)
             self._handle_cache_hit(info, var_value, var_folder_path, version)
 
             try:
-                stored_value = self.get_from_file(var_data_path)
+                stored_value = self.get_data_from_file(var_data_path)
 
-                print('loading cached value for variable \'{0}\'. Time since pickling  {1}'
+                print('Loading cached value for variable \'{0}\'. Time since caching: {1}'
                       .format(str(var_name), str(datetime.datetime.now() - info["store_date"])))
                 user_ns[var_name] = stored_value
             except IOError:
                 pass  # this happens, when there was a cache hit, but it was dirty
         except IOError:
             if not var_value and not reset:
-                raise CacheCallException("variable '" + str(var_name) + "' not in cache")
+                raise CacheCallException("Variable '" + str(var_name) + "' not in cache")
 
         if var_value and stored_value is None:
-            print('creating new value for variable \'' + str(var_name) + '\'')
+            print('Creating new value for variable \'' + str(var_name) + '\'')
             self._create_new_value(
                 self.shell,
                 var_folder_path,
@@ -95,7 +96,7 @@ class CacheCall:
                 var_value)
 
     @staticmethod
-    def hash_line(line):
+    def strip_line(line):
         return str(line).strip()
         # return hashlib.sha1(line.encode('utf-8')).hexdigest()
 
@@ -107,7 +108,12 @@ class CacheCall:
             os.makedirs(path)
 
     @staticmethod
-    def get_from_file(path):
+    def get_data_from_file(path):
+        with open(path, 'rb') as fp:
+            return pickle.loads(zlib.decompress(fp.read()))
+
+    @staticmethod
+    def get_info_from_file(path):
         with open(path, 'rb') as fp:
             return pickle.loads(fp.read())
 
@@ -127,14 +133,14 @@ class CacheCall:
 
         # store the result
         with open(var_data_path, 'wb') as fp:
-            pickle.dump(shell.user_ns[var_name], fp)
+            fp.write(zlib.compress(pickle.dumps(shell.user_ns[var_name])))
 
-        info = dict(expression_hash=self.hash_line(var_value),
+        info = dict(expression_hash=var_value,
                     store_date=datetime.datetime.now(),
                     version=version)
 
         with open(var_info_path, 'wb') as fp:
-            pickle.dump(info, fp)
+            fp.write(pickle.dumps(info))
 
     @staticmethod
     def _show_all(base_dir):
@@ -142,23 +148,29 @@ class CacheCall:
             raise CacheCallException("Base-Directory " + base_dir + " not found. ")
 
         vars = []
+        sizes = []
         for subdir in os.listdir(base_dir):
             var_name = subdir
             if debug:
                 print("found subdir: " + var_name)
 
-            data_path = os.path.join(base_dir, var_name, "data.txt")
-            size = os.path.getsize(data_path)
-            var_info_path = os.path.join(base_dir, subdir, "info.txt")
+            data_path = os.path.join(base_dir, var_name, "data.pkl.gz")
+            size = int(os.path.getsize(data_path)) / 1000000
+            sizes.append(size)
+            var_info_path = os.path.join(base_dir, subdir, "info.pkl")
 
             try:
-                info = CacheCall.get_from_file(var_info_path)
-                vars.append([var_name, size, info["store_date"], info["version"], info["expression_hash"]])
+                info = CacheCall.get_info_from_file(var_info_path)
+                store_date = info["store_date"]
+                version = info["version"]
+                expression = info["expression_hash"]
+                vars.append([var_name, size, store_date, version, expression])
 
             except IOError:
                 print("Warning: failed to read info variable '" + var_name + "'")
-
-        display(HTML(tabulate(vars, headers=["var name", "size(byte)", "stored at date", "version", "expression(hash)"],
+        total_size = sum(sizes)
+        vars.append(['Total Size:', total_size])
+        display(HTML(tabulate(vars, headers=["Var Name", "Size(MB)", "Stored Date", "Version", "Expression"],
                               tablefmt="html")))
 
     @staticmethod
@@ -179,9 +191,9 @@ class CacheCall:
             if str(info["version"]) != str(version):
                 # Note: Version can be a string, a number or the content of a variable (which can by anything)
                 if debug:
-                    print("resetting because version mismatch")
+                    print("Resetting because version mismatch")
                 CacheCall.reset_folder(var_folder_path)
-            elif info["expression_hash"] != CacheCall.hash_line(var_value):
+            elif info["expression_hash"] != CacheCall.strip_line(var_value):
                 print("Warning! Expression has changed since last save, which was at " + str(info["store_date"]))
                 print("To store a new value, change the version ('-v' or '--version')  ")
         else:
@@ -198,8 +210,6 @@ class CacheCall:
 
         if version_param in user_ns.keys():
             return user_ns[version_param]
-        if version_param == "*":
-            return CacheCall.hash_line(var_value)
         if version_param.isdigit():
             return int(version_param)
 
@@ -217,7 +227,7 @@ class CacheMagic(Magics):
     @line_magic
     def cache(self, line):
         """
-        This ipython-magic caches the result of statements.
+        This magic caches the result of statements.
         """
         try:
             parameter = self.parse_input(line)
@@ -255,7 +265,7 @@ class CacheMagic(Magics):
             break
 
         # Everything after the version is the assignment getting cached
-        cmd_str = " ".join(params[expression_starts_at:])
+        cmd_str = "".join(params[expression_starts_at:])
 
         if not "version" in result and not "reset" in result and not cmd_str:
             # no input (expect debug) --> restore all
@@ -264,15 +274,15 @@ class CacheMagic(Magics):
         try:
             cmd = ast.parse(cmd_str)
         except Exception as e:
-            raise CacheCallException("statement is no valid python: " + cmd_str + "\n Error: " + str(e))
+            raise CacheCallException("Statement is not valid python: " + cmd_str + "\n Error: " + str(e))
 
         if cmd_str:
 
             if not isinstance(cmd, ast.Module):
-                raise CacheCallException("statement must be an assignment or variable name. Line: " + cmd_str)
+                raise CacheCallException("Statement must be an assignment or variable name. Line: " + cmd_str)
 
             if len(cmd.body) != 1:
-                raise CacheCallException("statement must be an assignment or variable name. Line: " + cmd_str)
+                raise CacheCallException("Statement must be an assignment or variable name. Line: " + cmd_str)
 
             statement = cmd.body[0]
             if isinstance(statement, ast.Expr) and isinstance(statement.value, ast.Name):
@@ -281,12 +291,13 @@ class CacheMagic(Magics):
             elif isinstance(cmd.body[0], ast.Assign):
                 if len(statement.targets) != 1 \
                         or not isinstance(statement.targets[0], ast.Name):
-                    raise CacheCallException("astatement must be an assignment or variable name. Line: " + cmd_str)
+                    raise CacheCallException("Statement must be an assignment or variable name. Line: " + cmd_str)
 
                 result["var_name"] = statement.targets[0].id
-                result["var_value"] = astunparse.unparse(statement.value)
+                result["var_value"] = CacheCall.strip_line(astunparse.unparse(statement.value))
+                
             else:
-                raise CacheCallException("statement must be an assignment or variable name. Line: " + cmd_str)
+                raise CacheCallException("Statement must be an assignment or variable name. Line: " + cmd_str)
 
         return result
 
@@ -298,6 +309,5 @@ class CacheMagic(Magics):
 try:
     ip = get_ipython()
     ip.register_magics(CacheMagic)
-    print("%cache magic is now registered in ipython")
 except:
-    print("Error! Couldn't register magic in ipython!!!")
+    print("Error! Couldn't register cache magic in jupyter.")
