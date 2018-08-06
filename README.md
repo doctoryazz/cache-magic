@@ -1,4 +1,4 @@
-# cache magic
+# cache-magic
 
 This package adds `%cache` line-magic to Jupyter notebooks.
 
