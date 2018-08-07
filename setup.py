@@ -6,7 +6,7 @@ from os import path
 # Get the long description from the README file
 long_description = ''
 try:
-    with open(path.join(path.abspath(path.dirname(__file__)), 'README.rst')) as f:
+    with open('README.rst', encoding='utf8') as f:
         long_description = f.read()
 except IOError:
     print("could not locate README")
@@ -15,7 +15,7 @@ except IOError:
 
 setup(
     name='cache-magic',
-    version='1.0.2',
+    version='1.0.4',
     packages=['cache_magic'],
     url='https://github.com/pyython/cache-magic',
     long_description=long_description,
