@@ -8,3 +8,4 @@
 *.pyc
 README.rst
 setup.cfg
+meta.yaml
