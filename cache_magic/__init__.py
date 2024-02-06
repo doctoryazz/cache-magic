@@ -34,7 +34,7 @@ class CacheCall:
     def __init__(self, shell):
         self.shell = shell
 
-    def __call__(self, version="0", reset=False, var_name="", var_value="", show_all=False, set_debug=None):
+    def __call__(self, version="*", reset=False, var_name="", var_value="", show_all=False, set_debug=None):
 
         if set_debug is not None:
             global debug
@@ -65,12 +65,14 @@ class CacheCall:
             print("Warning: nothing todo: no variable defined, no reset requested, no show_all requested. ")
             return
 
-        version = self._get_cache_version(version, var_value, user_ns)
+        old_version = -1
         stored_value = None
 
         try:
             info = self.get_info_from_file(var_info_path)
-            self._handle_cache_hit(info, var_value, var_folder_path, version)
+            old_version = info["version"]
+            new_version = self._get_cache_version(version, old_version, user_ns, False)
+            self._handle_cache_hit(info, var_value, var_folder_path, new_version)
 
             try:
                 stored_value = self.get_data_from_file(var_data_path)
@@ -85,6 +87,7 @@ class CacheCall:
                 raise CacheCallException("Variable '" + str(var_name) + "' not in cache")
 
         if var_value and stored_value is None:
+            new_version = self._get_cache_version(version, old_version, user_ns, True)
             print('Creating new value for variable \'' + str(var_name) + '\'')
             self._create_new_value(
                 self.shell,
@@ -195,7 +198,7 @@ class CacheCall:
                 CacheCall.reset_folder(var_folder_path)
             elif info["expression_hash"] != CacheCall.strip_line(var_value):
                 print("Warning! Expression has changed since last save, which was at " + str(info["store_date"]))
-                print("To store a new value, change the version ('-v' or '--version')  ")
+                CacheCall.reset_folder(var_folder_path)
         else:
             if version != '' and info['version'] != version:
                 # force a version
@@ -206,8 +209,14 @@ class CacheCall:
                     + "If you don't care about a specific version, leave out the version parameter. ")
 
     @staticmethod
-    def _get_cache_version(version_param, var_value, user_ns):
-
+    def _get_cache_version(version_param, old_version=0, user_ns, recalc=False):
+        if version_param == "*":
+            if not recalc:
+                return old_version
+            elif old_version.isdigit():
+                return old_version + 1
+            else:
+                return 0
         if version_param in user_ns.keys():
             return user_ns[version_param]
         if version_param.isdigit():
