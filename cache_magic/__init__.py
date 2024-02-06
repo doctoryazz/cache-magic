@@ -178,7 +178,16 @@ class CacheCall:
 
     @staticmethod
     def _reset_all(base_dir):
-        CacheCall.reset_folder(base_dir)
+        if os.path.exists(base_dir):
+            for filename in os.listdir(base_dir):
+                file_path = os.path.join(base_dir, filename)
+                try:
+                    if os.path.isdir(file_path):
+                        shutil.rmtree(file_path)
+                except Exception as e:
+                    print('Failed to delete %s. Reason: %s' % (file_path, e))
+        else:
+            os.makedirs(base_dir)
 
     @staticmethod
     def _reset_var(var_folder_path):
