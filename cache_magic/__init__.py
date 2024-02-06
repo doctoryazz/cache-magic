@@ -34,7 +34,7 @@ class CacheCall:
     def __init__(self, shell):
         self.shell = shell
 
-    def __call__(self, version="0", reset=False, var_name="", var_value="", show_all=False, set_debug=None):
+    def __call__(self, version="*", reset=False, var_name="", var_value="", show_all=False, set_debug=None):
 
         if set_debug is not None:
             global debug
@@ -65,12 +65,14 @@ class CacheCall:
             print("Warning: nothing todo: no variable defined, no reset requested, no show_all requested. ")
             return
 
-        version = self._get_cache_version(version, var_value, user_ns)
+        old_version = "-1"
         stored_value = None
 
         try:
             info = self.get_info_from_file(var_info_path)
-            self._handle_cache_hit(info, var_value, var_folder_path, version)
+            old_version = str(info["version"])
+            new_version = self._get_cache_version(version, user_ns, old_version, False)
+            self._handle_cache_hit(info, var_value, var_folder_path, new_version)
 
             try:
                 stored_value = self.get_data_from_file(var_data_path)
@@ -82,16 +84,18 @@ class CacheCall:
                 pass  # this happens, when there was a cache hit, but it was dirty
         except IOError:
             if not var_value and not reset:
-                raise CacheCallException("Variable '" + str(var_name) + "' not in cache")
+                print("Warning: Variable '" + str(var_name) + "' not in cache")
+                return
 
         if var_value and stored_value is None:
+            new_version = self._get_cache_version(version, user_ns, old_version, True)
             print('Creating new value for variable \'' + str(var_name) + '\'')
             self._create_new_value(
                 self.shell,
                 var_folder_path,
                 var_data_path,
                 var_info_path,
-                version,
+                new_version,
                 var_name,
                 var_value)
 
@@ -145,7 +149,8 @@ class CacheCall:
     @staticmethod
     def _show_all(base_dir):
         if not os.path.isdir(base_dir):
-            raise CacheCallException("Base-Directory " + base_dir + " not found. ")
+            print("Error: Base-Directory " + base_dir + " not found. ")
+            return
 
         vars = []
         sizes = []
@@ -175,7 +180,16 @@ class CacheCall:
 
     @staticmethod
     def _reset_all(base_dir):
-        CacheCall.reset_folder(base_dir)
+        if os.path.exists(base_dir):
+            for filename in os.listdir(base_dir):
+                file_path = os.path.join(base_dir, filename)
+                try:
+                    if os.path.isdir(file_path):
+                        shutil.rmtree(file_path)
+                except Exception as e:
+                    print('Failed to delete %s. Reason: %s' % (file_path, e))
+        else:
+            os.makedirs(base_dir)
 
     @staticmethod
     def _reset_var(var_folder_path):
@@ -192,10 +206,10 @@ class CacheCall:
                 # Note: Version can be a string, a number or the content of a variable (which can by anything)
                 if debug:
                     print("Resetting because version mismatch")
-                CacheCall.reset_folder(var_folder_path)
+                CacheCall.reset_folder(var_folder_path, False)
             elif info["expression_hash"] != CacheCall.strip_line(var_value):
-                print("Warning! Expression has changed since last save, which was at " + str(info["store_date"]))
-                print("To store a new value, change the version ('-v' or '--version')  ")
+                print("Expression has changed since last save, which was at " + str(info["store_date"]))
+                CacheCall.reset_folder(var_folder_path, False)
         else:
             if version != '' and info['version'] != version:
                 # force a version
@@ -203,15 +217,21 @@ class CacheCall:
                     "Forced version '" + str(version)
                     + "' could not be found, instead found version '"
                     + str(info['version']) + "'."
-                    + "If you don't care about a specific version, leave out the version parameter. ")
+                    + "If you don't care about a specific version, remove the version parameter.")
 
     @staticmethod
-    def _get_cache_version(version_param, var_value, user_ns):
-
+    def _get_cache_version(version_param, user_ns, old_version="0", recalc=False):
+        if version_param == "*":
+            if not recalc:
+                return str(old_version)
+            elif old_version.isdigit():
+                return str(int(old_version) + 1)
+            else:
+                return "0"
         if version_param in user_ns.keys():
-            return user_ns[version_param]
+            return str(user_ns[version_param])
         if version_param.isdigit():
-            return int(version_param)
+            return version_param
 
         print("Version: " + str(version_param))
         print("version_param.isdigit(): " + str(version_param.isdigit()))
@@ -234,6 +254,7 @@ class CacheMagic(Magics):
             CacheCall(self.shell)(**parameter)
         except CacheCallException as e:
             print("Error: " + str(e))
+            raise e
 
     @staticmethod
     def parse_input(_input):
