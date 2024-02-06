@@ -206,7 +206,7 @@ class CacheCall:
                     print("Resetting because version mismatch")
                 CacheCall.reset_folder(var_folder_path, False)
             elif info["expression_hash"] != CacheCall.strip_line(var_value):
-                print("Warning! Expression has changed since last save, which was at " + str(info["store_date"]))
+                print("Expression has changed since last save, which was at " + str(info["store_date"]))
                 CacheCall.reset_folder(var_folder_path, False)
         else:
             if version != '' and info['version'] != version:
@@ -215,7 +215,7 @@ class CacheCall:
                     "Forced version '" + str(version)
                     + "' could not be found, instead found version '"
                     + str(info['version']) + "'."
-                    + "If you don't care about a specific version, leave out the version parameter. ")
+                    + "If you don't care about a specific version, remove the version parameter.")
 
     @staticmethod
     def _get_cache_version(version_param, user_ns, old_version="0", recalc=False):
@@ -252,6 +252,7 @@ class CacheMagic(Magics):
             CacheCall(self.shell)(**parameter)
         except CacheCallException as e:
             print("Error: " + str(e))
+            raise e
 
     @staticmethod
     def parse_input(_input):
