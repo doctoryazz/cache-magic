@@ -94,7 +94,7 @@ class CacheCall:
                 var_folder_path,
                 var_data_path,
                 var_info_path,
-                version,
+                new_version,
                 var_name,
                 var_value)
 
