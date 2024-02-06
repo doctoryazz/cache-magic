@@ -70,7 +70,7 @@ class CacheCall:
 
         try:
             info = self.get_info_from_file(var_info_path)
-            old_version = info["version"]
+            old_version = str(info["version"])
             new_version = self._get_cache_version(version, user_ns, old_version, False)
             self._handle_cache_hit(info, var_value, var_folder_path, new_version)
 
