@@ -65,7 +65,7 @@ class CacheCall:
             print("Warning: nothing todo: no variable defined, no reset requested, no show_all requested. ")
             return
 
-        old_version = -1
+        old_version = "-1"
         stored_value = None
 
         try:
@@ -218,12 +218,12 @@ class CacheCall:
                     + "If you don't care about a specific version, leave out the version parameter. ")
 
     @staticmethod
-    def _get_cache_version(version_param, user_ns, old_version=0, recalc=False):
+    def _get_cache_version(version_param, user_ns, old_version="0", recalc=False):
         if version_param == "*":
             if not recalc:
                 return old_version
             elif old_version.isdigit():
-                return old_version + 1
+                return int(old_version) + 1
             else:
                 return 0
         if version_param in user_ns.keys():
