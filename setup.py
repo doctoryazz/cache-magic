@@ -15,14 +15,14 @@ except IOError:
 
 setup(
     name='cache-magic',
-    version='1.0.4',
+    version='1.0.4.1',
     packages=['cache_magic'],
-    url='https://github.com/pyython/cache-magic',
+    url='https://github.com/doctoryazz/cache-magic',
     long_description=long_description,
     license='BSD-3-Clause',
-    author='Chris Piatt',
-    author_email='chris@pyython.com',
-    description='Versatile cache line magic for jupyter notebooks, based on https://pypi.org/project/ipython-cache/',
+    author='Doctor Yazz',
+    author_email='doctoryazz@gmail.com',
+    description='Versatile cache line magic for jupyter notebooks, based on https://pypi.org/project/cache-magic/',
     classifiers=[
         'Development Status :: 7 - Inactive',
         'Intended Audience :: Developers',
