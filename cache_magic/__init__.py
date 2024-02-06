@@ -84,7 +84,8 @@ class CacheCall:
                 pass  # this happens, when there was a cache hit, but it was dirty
         except IOError:
             if not var_value and not reset:
-                raise CacheCallException("Variable '" + str(var_name) + "' not in cache")
+                print("Warning: Variable '" + str(var_name) + "' not in cache")
+                return
 
         if var_value and stored_value is None:
             new_version = self._get_cache_version(version, user_ns, old_version, True)
@@ -148,7 +149,8 @@ class CacheCall:
     @staticmethod
     def _show_all(base_dir):
         if not os.path.isdir(base_dir):
-            raise CacheCallException("Base-Directory " + base_dir + " not found. ")
+            print("Error: Base-Directory " + base_dir + " not found. ")
+            return
 
         vars = []
         sizes = []
