@@ -71,7 +71,7 @@ class CacheCall:
         try:
             info = self.get_info_from_file(var_info_path)
             old_version = info["version"]
-            new_version = self._get_cache_version(version, old_version, user_ns, False)
+            new_version = self._get_cache_version(version, user_ns, old_version, False)
             self._handle_cache_hit(info, var_value, var_folder_path, new_version)
 
             try:
@@ -87,7 +87,7 @@ class CacheCall:
                 raise CacheCallException("Variable '" + str(var_name) + "' not in cache")
 
         if var_value and stored_value is None:
-            new_version = self._get_cache_version(version, old_version, user_ns, True)
+            new_version = self._get_cache_version(version, user_ns, old_version, True)
             print('Creating new value for variable \'' + str(var_name) + '\'')
             self._create_new_value(
                 self.shell,
@@ -209,7 +209,7 @@ class CacheCall:
                     + "If you don't care about a specific version, leave out the version parameter. ")
 
     @staticmethod
-    def _get_cache_version(version_param, old_version=0, user_ns, recalc=False):
+    def _get_cache_version(version_param, user_ns, old_version=0, recalc=False):
         if version_param == "*":
             if not recalc:
                 return old_version
