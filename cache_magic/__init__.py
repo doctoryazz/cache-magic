@@ -204,10 +204,10 @@ class CacheCall:
                 # Note: Version can be a string, a number or the content of a variable (which can by anything)
                 if debug:
                     print("Resetting because version mismatch")
-                CacheCall.reset_folder(var_folder_path)
+                CacheCall.reset_folder(var_folder_path, False)
             elif info["expression_hash"] != CacheCall.strip_line(var_value):
                 print("Warning! Expression has changed since last save, which was at " + str(info["store_date"]))
-                CacheCall.reset_folder(var_folder_path)
+                CacheCall.reset_folder(var_folder_path, False)
         else:
             if version != '' and info['version'] != version:
                 # force a version
