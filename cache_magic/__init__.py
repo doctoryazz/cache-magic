@@ -221,15 +221,15 @@ class CacheCall:
     def _get_cache_version(version_param, user_ns, old_version="0", recalc=False):
         if version_param == "*":
             if not recalc:
-                return old_version
+                return str(old_version)
             elif old_version.isdigit():
-                return int(old_version) + 1
+                return str(int(old_version) + 1)
             else:
-                return 0
+                return "0"
         if version_param in user_ns.keys():
-            return user_ns[version_param]
+            return str(user_ns[version_param])
         if version_param.isdigit():
-            return int(version_param)
+            return version_param
 
         print("Version: " + str(version_param))
         print("version_param.isdigit(): " + str(version_param.isdigit()))
