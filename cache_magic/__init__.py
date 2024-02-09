@@ -158,9 +158,16 @@ class CacheCall:
             var_name = subdir
             if debug:
                 print("found subdir: " + var_name)
-
-            data_path = os.path.join(base_dir, var_name, "data.pkl.gz")
-            size = int(os.path.getsize(data_path)) / 1000000
+            
+            size = 0
+            try:
+                data_path = os.path.join(base_dir, var_name, "data.pkl.gz")
+                size = int(os.path.getsize(data_path)) / 1000000
+            except FileNotFoundError:
+                if debug:
+                    print("skippping " + var_name + " because file not found: " + data_path)
+                continue
+                
             sizes.append(size)
             var_info_path = os.path.join(base_dir, subdir, "info.pkl")
 
