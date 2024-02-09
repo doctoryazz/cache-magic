@@ -218,7 +218,7 @@ class CacheCall:
                 print("Expression has changed since last save, which was at " + str(info["store_date"]))
                 CacheCall.reset_folder(var_folder_path, False)
         else:
-            if version != '' and info['version'] != version:
+            if version != '' and str(info['version']) != str(version):
                 # force a version
                 raise CacheCallException(
                     "Forced version '" + str(version)
