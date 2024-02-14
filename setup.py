@@ -11,7 +11,7 @@ except IOError:
 
 setup(
     name='cache-magic',
-    version='1.0.4.1',
+    version='1.0.4.2',
     packages=['cache_magic'],
     url='https://github.com/doctoryazz/cache-magic',
     long_description=long_description,
