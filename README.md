@@ -1,12 +1,12 @@
 # cache-magic
 
-This package adds `%cache` line-magic to Jupyter notebooks.
+This package adds `%cache` line-magic to Jupyter notebooks. It allows you to cache Python variables on file system.
 
 ## DISCLAIMER
 
-The author of this Python package makes no commitment to maintain it. It was originally forked from [this](https://github.com/chpiatt/cache-magic) and [this](https://github.com/SmartDataInnovationLab/ipython-cache) projects with some improvements added. It is recommended to review the license text [here](https://github.com/doctoryazz/cache-magic/blob/master/LICENSE) before using this code.
+The software is provided "as is". The author of this Python package makes no commitment to maintain it. It was originally forked from [this](https://github.com/chpiatt/cache-magic) and [this](https://github.com/SmartDataInnovationLab/ipython-cache) projects with some improvements added. It is also recommended to review the [license](https://github.com/doctoryazz/cache-magic/blob/master/LICENSE) text before using this code.
 
-<pre><code><big>Fork sequence</big><br>
+<pre><code><h2>Fork sequence</h2><br>
 <a href="https://github.com/SmartDataInnovationLab/ipython-cache">SmartDataInnovationLab/ipython-cache</a>
 │     
 └───<a href="https://github.com/chpiatt/cache-magic">chpiatt/cache-magic</a>
@@ -167,6 +167,12 @@ pip install --index-url https://test.pypi.org/simple --extra-index-url https://p
 ```bash
 pip install cache-magic --no-cache-dir --user
 ```
+Alternatively (if you don't want to install python, jupyter, etc.), you can use the docker-compose.yml for development:
+
+```bash
+cd cache-magic
+docker-compose up
+```
 
 ## Editable import
 
@@ -182,13 +188,6 @@ reload after each change:
 import cache_magic
 from importlib import reload
 reload(cache_magic)
-```
-
-Alternatively (if you don't want to install python, jupyter & co), you can use the docker-compose.yml for development:
-
-```bash
-cd cache-magic
-docker-compose up
 ```
 
 <!-- ## create Conda Packet
