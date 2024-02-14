@@ -1,10 +1,13 @@
 /.cache/
 /.cache_magic/
+/.cache-magic/
 /.ipynb_checkpoints/
 /*.egg-info/
 /.idea/
 /dist/
-/test/temp/
+/test/output/
+/.ipython/
+__pycache__/
 *.pyc
 README.rst
 setup.cfg
