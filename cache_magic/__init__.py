@@ -14,10 +14,11 @@ from IPython.display import HTML, display
 from tabulate import tabulate
 
 logger = logging.getLogger(__name__)
+logger.propagate = False
 if not logger.hasHandlers():
     ch = logging.StreamHandler(stdout)
     ch.setFormatter(logging.Formatter('%(message)s'))
-    logging.getLogger(__name__).addHandler(ch)
+    logger.addHandler(ch)
 
 
 # ########################### #
