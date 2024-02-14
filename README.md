@@ -2,41 +2,57 @@
 
 This package adds `%cache` line-magic to Jupyter notebooks.
 
-## Warning!!!
-The author of this Python package makes no commitment to maintain it.  It was forked from [this project](https://github.com/SmartDataInnovationLab/ipython-cache) and you're probably better off using that! That said, if you like the tweaks I made (added compression, bug fixes, style preferences, etc.), feel free to use it how you see fit. Just be sure to respect the original author's license (see LICENSE copied [here](https://github.com/pyython/cache-magic/blob/master/LICENSE) for your convenience).
+## DISCLAIMER
+
+The author of this Python package makes no commitment to maintain it. It was originally forked from [this](https://github.com/chpiatt/cache-magic) and [this](https://github.com/SmartDataInnovationLab/ipython-cache) projects with some improvements added. It is recommended to review the license text [here](https://github.com/doctoryazz/cache-magic/blob/master/LICENSE) before using this code.
+
+<pre><code><big>Fork sequence</big><br>
+<a href="https://github.com/SmartDataInnovationLab/ipython-cache">SmartDataInnovationLab/ipython-cache</a>
+│     
+└───<a href="https://github.com/chpiatt/cache-magic">chpiatt/cache-magic</a>
+    │
+    └───<a href="https://github.com/doctoryazz/cache-magic">doctoryazz/cache-magic</a> (you are here)
+</pre></code>
 
 ## Quickstart
 
-* The pip-package is called `cache-magic`
+* The package is called `cache-magic`
 * The python module is called `cache_magic`
 * The magic is called `%cache`
 
 So you can run the magic by entering this into an Jupyter cell:
 
 ```python
-!pip install cache-magic
+%pip install git+https://github.com/doctoryazz/cache-magic.git
 import cache_magic
-%cache a = 1+1
+%cache a = 1 + 1
 %cache
 ```
 
 # installation
 
-## install directly from notebook
+## Install directly from notebook
 
 1. open jupyter notebook
 2. create new cell
-3. enter `!pip install cache-magic`
+3. enter `%pip install git+https://github.com/doctoryazz/cache-magic.git`
 4. execute
 
-## install into conda-environment
+## Install from command line
+
+simply run this command:
+```bash
+pip install git+https://github.com/doctoryazz/cache-magic.git
+```
+
+<!-- ## install into conda-environment
 
 ```bash
 conda create -n test
-source activate test
+conda activate test
 conda install -c pyython cache-magic
 jupyter notebook
-```
+``` -->
 
 # usage
 
@@ -44,7 +60,7 @@ Activate the magic by loading the module like any other module. Write into a cel
 
 When you want to apply the magic to a line, just prepend the line with `%cache`
 
-## example
+## Example
 
 ```
 %cache myVar = someSlowCalculation(some, "parameters")
@@ -56,63 +72,68 @@ The magic turns this example into something like this (if there was no ipython-k
 
 ```python
 try:
-  with open("myVar.pkl.gz", 'rb') as fp:
-    myVar = pickle.loads(zlib.decompress(fp.read()))
+    with open("myVar.pkl.gz", 'rb') as fp:
+        myVar = pickle.loads(zlib.decompress(fp.read()))
 except:
-  myVar = someSlowCalculation(some, "parameters")
-  with open("myVar.pkl.gz", 'wb') as fp:
-    fp.write(zlib.compress(pickle.dumps(myVar)))
+    myVar = someSlowCalculation(some, "parameters")
+    with open("myVar.pkl.gz", 'wb') as fp:
+        fp.write(zlib.compress(pickle.dumps(myVar)))
 ```
 
-## general form
+## General form
 
-```
+```python
 %cache <variable> = <expression>
 ```
 
-**Variable**: This Variable's value will be fetched from cache.
+`<variable>` - this variable's value will be fetched from cache.
 
-**Expression**: This will only be excecuted once and the result will be stored to disk.
+`<expression>` - this will only be excecuted once and the result will be stored to disk.
 
-## full form
+If you only want to load variable from cache, use this short form:
+```python
+%cache <variable>
+```
+
+## Full form
 
 ```
 %cache [--version <version>] [--reset] [--debug] variable [= <expression>]
 ```
 
-**-v or --version**: either a variable name or an integer. Whenever this changes, a new value is calculated (instead of returning an old value from the cache).
+**`-v`** or **`--version`**: either a variable name or an integer. Whenever this changes, a new value is calculated (instead of returning an old value from the cache).
 
-if version is '\*' or omitted, the hashed expression is used as version, so whenever the expression changes, a new value is cached.
+If version is `*` or omitted, the *default* version is used. It means that the current version from the cache will be loaded if possible; if no cached value or if expression has changed, then a new value is calculated and a new version will be assigned.
 
-**-r or --reset**: delete the cached value for this variable. Forces recalculation, if `<expression>` is present
+**`-r`** or **`--reset`**: delete the cached value for this variable. Forces recalculation, if `<expression>` is present.
 
-**-d or --debug**: additional logging
+**`-d`** or **`--debug`**: additional logging.
 
-## show cache
+## Show cache
 
 ```python
 %cache
 ```
 
-shows all variables in cache as html-table
+shows all variables in cache as html-table.
 
-## full reset
+## Full reset
 
 ```python
 %cache -r
 %cache --reset
 ```
 
-deletes all cached values for all variables
+deletes all cached values for all variables.
 
-## where is the cache stored?
+## Where is the cache stored?
 
-In the directory where the kernel was started (usually where the notebook is located)  in a subfolder called `.cache`
+In the directory where the kernel was started (usually where the notebook is located)  in a subfolder called `.cache-magic`
 
 
 # developer Notes
 
-## push to pypi
+<!-- ## push to pypi
 
 prepare environment:
 
@@ -135,31 +156,31 @@ firefox https://testpypi.python.org/pypi/cache-magic
 twine upload dist/*
 ```
 
-test install from testpypi
+test installation from testpypi
 
 ```bash
-pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple cache-magic --no-cache-dir --user
-```
+pip install --index-url https://test.pypi.org/simple --extra-index-url https://pypi.org/simple cache-magic --no-cache-dir --user
+```-->
 
-test installation
+## Test installation
 
 ```bash
-sudo pip install cache-magic --no-cache-dir --user
+pip install cache-magic --no-cache-dir --user
 ```
 
-## editable import
+## Editable import
 
 Install into environment with `-e`:
 
 ```python
-!pip install -e .
+%pip install -e .
 ```
 
 reload after each change:
 
-```bash
+```python
 import cache_magic
-from imp import reload
+from importlib import reload
 reload(cache_magic)
 ```
 
@@ -170,26 +191,24 @@ cd cache-magic
 docker-compose up
 ```
 
-## create Conda Packet
+<!-- ## create Conda Packet
 
 requires the bash with latest anaconda on path
 
 ```bash
-bash
 mkdir test && cd test
 conda skeleton pypi cache-magic
 conda config --set anaconda_upload yes
 conda-build cache-magic -c conda-forge
-```
+``` -->
 
-## running tests
+## Running tests
 
-```bash
-bash
-conda remove --name test --all
+<!-- conda remove --name test --all
 conda env create -f test/environment.yml
-source activate test
-conda remove cache-magic
+conda activate test
+conda remove cache-magic -->
+```bash
 pip uninstall cache-magic
 pip install -e .
 ./test/run_example.py
@@ -197,4 +216,4 @@ pip install -e .
 
 If there is any error, it will be printed to stderr and the script fails.
 
-the output can be found in "test/temp".
+The output can be found in "test/output".

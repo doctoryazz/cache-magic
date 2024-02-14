@@ -1,18 +1,21 @@
-from IPython.core.magic import Magics, magics_class, line_magic
-from IPython import get_ipython, start_ipython
-
 import pickle
 import os
-import hashlib
 import datetime
 import shutil
 import ast
-import astunparse
 import zlib
-from tabulate import tabulate
-from IPython.display import HTML, display
+import logging
+from sys import stdout
 
-debug = False
+import astunparse
+from IPython.core.magic import Magics, magics_class, line_magic
+from IPython import get_ipython
+from IPython.display import HTML, display
+from tabulate import tabulate
+
+logger = logging.getLogger(__name__)
+if not logger.hasHandlers():
+    logging.getLogger(__name__).addHandler(logging.StreamHandler(stdout))
 
 
 # ########################### #
@@ -34,65 +37,96 @@ class CacheCall:
     def __init__(self, shell):
         self.shell = shell
 
-    def __call__(self, version="*", reset=False, var_name="", var_value="", show_all=False, set_debug=None):
-
-        if set_debug is not None:
-            global debug
-            debug = set_debug
-
-        user_ns = self.shell.user_ns
-        base_dir = self.shell.starting_dir + "/.cache/"
+    def __call__(self, version="*", reset=False, var_name="", var_value="", show_all=False, set_debug=False):
+        if set_debug:
+            logger.setLevel(logging.DEBUG)
+        else:
+            logger.setLevel(logging.WARN)
 
         if show_all:
-            self._show_all(base_dir)
+            self._show_all()
             return
+
+        if reset:
+            if var_name:
+                logger.warn("Resetting cached values for " + var_name)
+                self._reset_var(var_name)
+                # no return, because it might be a forced recalculation
+            else:
+                logger.warn("Resetting entire cache")
+                self._reset_all()
+                return
+
+        if not var_name:
+            logger.warn("Warning: nothing to do: no variable defined, no reset requested, no show_all requested. ")
+            return
+        
+        user_ns = self.shell.user_ns
+        base_dir = self.get_base_dir()
 
         var_folder_path = os.path.join(base_dir, var_name)
         var_data_path = os.path.join(var_folder_path, "data.pkl.gz")
         var_info_path = os.path.join(var_folder_path, "info.pkl")
 
-        if reset:
-            if var_name:
-                print("Resetting cached values for " + var_name)
-                self._reset_var(var_folder_path)
-                # no return, because it might be a forced recalculation
-            else:
-                print("Resetting entire cache")
-                self._reset_all(base_dir)
-                return
-
-        if not var_name:
-            print("Warning: nothing todo: no variable defined, no reset requested, no show_all requested. ")
-            return
-
-        old_version = "-1"
+        old_version = None
         stored_value = None
 
-        try:
-            info = self.get_info_from_file(var_info_path)
-            old_version = str(info["version"])
-            new_version = self._get_cache_version(version, user_ns, old_version, False)
-            self._handle_cache_hit(info, var_value, var_folder_path, new_version)
-
+        if not reset:
             try:
-                stored_value = self.get_data_from_file(var_data_path)
+                info = self.get_info_from_file(var_info_path)
+                old_version = str(info["version"])
+                requested_version = self._get_cache_version(version, user_ns, old_version, False)
+                load_cache = True
 
-                print('Loading cached value for variable \'{0}\'. Time since caching: {1}'
-                      .format(str(var_name), str(datetime.datetime.now() - info["store_date"])))
-                user_ns[var_name] = stored_value
+                if str(version) == "*":
+                    if var_value and str(info["expression_hash"]) != str(var_value).strip():
+                        logger.warn("Expression has changed since last save, which was at " + str(info["store_date"]))
+                        self._reset_var(var_name)
+                        load_cache = False
+                elif var_value:
+                    if str(info["version"]) != requested_version:
+                        # Note: Version can be a string, a number or the content of a variable (which can by anything)
+                        logger.debug("Resetting because version mismatch")
+                        self._reset_var(var_name)
+                        load_cache = False
+                    elif str(info["expression_hash"]) != str(var_value).strip():
+                        logger.warn("Warning! Expression has changed since last save, which was at " + str(info["store_date"]))
+                        logger.warn("To store a new value, change or omit the version ('-v' or '--version').")         
+                else:
+                    if str(info['version']) != requested_version:
+                        # force a version
+                        logger.warn(
+                            "Forced version '" + requested_version
+                            + "' could not be found, instead found version '"
+                            + str(info['version']) + "'."
+                            + "If you don't care about a specific version, remove the version parameter.")
+                        # logger.warn("For now, setting variable '" + str(var_name) + "' to None")
+                        # user_ns[var_name] = None
+                        return
+                    
+                if load_cache:
+                    try:
+                        stored_value = self.get_data_from_file(var_data_path)
+                        logger.warn('Loading cached value for variable \'{0}\'. Time since caching: {1}'
+                            .format(str(var_name), str(datetime.datetime.now() - info["store_date"])))
+                        user_ns[var_name] = stored_value
+                    except IOError:
+                        logger.error("Failed to load cached data for variable '" + str(var_name) + "'")
+                        # user_ns[var_name] = None
+                        
             except IOError:
-                pass  # this happens, when there was a cache hit, but it was dirty
-        except IOError:
-            if not var_value and not reset:
-                print("Warning: Variable '" + str(var_name) + "' not in cache")
-                return
-
+                if not var_value:
+                    logger.error("Error: Variable '" + str(var_name) + "' not in cache.")
+                    # logger.warn("Setting variable '" + str(var_name) + "' to None")
+                    # user_ns[var_name] = None
+                    return
+                # if there is an expression and no info-file -> a new variable and nothing needs to be checked up front
+        
         if var_value and stored_value is None:
             new_version = self._get_cache_version(version, user_ns, old_version, True)
-            print('Creating new value for variable \'' + str(var_name) + '\'')
+            logger.warn('Creating new value for variable \'' + str(var_name) + '\'')
             self._create_new_value(
                 self.shell,
-                var_folder_path,
                 var_data_path,
                 var_info_path,
                 new_version,
@@ -103,13 +137,9 @@ class CacheCall:
     def strip_line(line):
         return str(line).strip()
         # return hashlib.sha1(line.encode('utf-8')).hexdigest()
-
-    @staticmethod
-    def reset_folder(path, make_new=True):
-        if os.path.exists(path):
-            shutil.rmtree(path)
-        if make_new:
-            os.makedirs(path)
+    
+    def get_base_dir(self):
+        return self.shell.starting_dir + "/.cache-magic/"
 
     @staticmethod
     def get_data_from_file(path):
@@ -121,10 +151,10 @@ class CacheCall:
         with open(path, 'rb') as fp:
             return pickle.loads(fp.read())
 
-    def _create_new_value(self, shell, var_folder_path, var_data_path, var_info_path, version, var_name, var_value):
+    def _create_new_value(self, shell, var_data_path, var_info_path, version, var_name, var_value):
 
         # make sure there is a clean state for this var
-        self.reset_folder(var_folder_path)
+        self._reset_var(var_name, True)
 
         # calculate the new Value in user-context
         cmd = self._reconstruct_expression(var_name, var_value)
@@ -146,26 +176,28 @@ class CacheCall:
         with open(var_info_path, 'wb') as fp:
             fp.write(pickle.dumps(info))
 
+    def _show_all(self):
+        base_dir = self.get_base_dir()
+        CacheCall.show_all(base_dir)
+    
     @staticmethod
-    def _show_all(base_dir):
+    def show_all(base_dir):
         if not os.path.isdir(base_dir):
-            print("Error: Base-Directory " + base_dir + " not found. ")
+            logger.error("Error: Base-Directory " + base_dir + " not found. ")
             return
 
         vars = []
         sizes = []
         for subdir in os.listdir(base_dir):
             var_name = subdir
-            if debug:
-                print("found subdir: " + var_name)
+            logger.debug("found subdir: " + var_name)
             
             size = 0
             try:
                 data_path = os.path.join(base_dir, var_name, "data.pkl.gz")
                 size = int(os.path.getsize(data_path)) / 1000000
             except FileNotFoundError:
-                if debug:
-                    print("skippping " + var_name + " because file not found: " + data_path)
+                logger.debug("skippping " + var_name + " because file not found: " + data_path)
                 continue
                 
             sizes.append(size)
@@ -179,14 +211,15 @@ class CacheCall:
                 vars.append([var_name, size, store_date, version, expression])
 
             except IOError:
-                print("Warning: failed to read info variable '" + var_name + "'")
+                logger.error("Warning: failed to read info variable '" + var_name + "'")
         total_size = sum(sizes)
         vars.append(['Total Size:', total_size])
         display(HTML(tabulate(vars, headers=["Var Name", "Size(MB)", "Stored Date", "Version", "Expression"],
                               tablefmt="html")))
 
-    @staticmethod
-    def _reset_all(base_dir):
+    def _reset_all(self):
+        base_dir = self.get_base_dir()
+        logger.debug("Resetting entire cache at " + str(base_dir))
         if os.path.exists(base_dir):
             for filename in os.listdir(base_dir):
                 file_path = os.path.join(base_dir, filename)
@@ -194,55 +227,36 @@ class CacheCall:
                     if os.path.isdir(file_path):
                         shutil.rmtree(file_path)
                 except Exception as e:
-                    print('Failed to delete %s. Reason: %s' % (file_path, e))
+                    logger.error('Failed to delete %s. Reason: %s' % (file_path, e))
         else:
             os.makedirs(base_dir)
 
+    def _reset_var(self, var_name, make_new=False):
+        base_dir = self.get_base_dir()
+        path = os.path.join(base_dir, var_name)
+        logger.debug("Resetting variable '" + str(var_name) + "' at " + str(path))
+        if os.path.exists(path):
+            shutil.rmtree(path)
+        if make_new:
+            os.makedirs(path)
+       
     @staticmethod
-    def _reset_var(var_folder_path):
-        CacheCall.reset_folder(var_folder_path, False)
-
-    @staticmethod
-    def _handle_cache_hit(info, var_value, var_folder_path, version):
-        """
-        If there was a cache hit, this handles the invalidation of the cache, if needed
-        """
-        if var_value:
-            # if there is an expression and no info-file -> a new variable and nothing needs to be checked up front
-            if str(info["version"]) != str(version):
-                # Note: Version can be a string, a number or the content of a variable (which can by anything)
-                if debug:
-                    print("Resetting because version mismatch")
-                CacheCall.reset_folder(var_folder_path, False)
-            elif info["expression_hash"] != CacheCall.strip_line(var_value):
-                print("Expression has changed since last save, which was at " + str(info["store_date"]))
-                CacheCall.reset_folder(var_folder_path, False)
-        else:
-            if version != '' and str(info['version']) != str(version):
-                # force a version
-                raise CacheCallException(
-                    "Forced version '" + str(version)
-                    + "' could not be found, instead found version '"
-                    + str(info['version']) + "'."
-                    + "If you don't care about a specific version, remove the version parameter.")
-
-    @staticmethod
-    def _get_cache_version(version_param, user_ns, old_version="0", recalc=False):
-        if version_param == "*":
+    def _get_cache_version(version_param, user_ns, old_version, recalc=False):
+        if str(version_param) == "*":
             if not recalc:
                 return str(old_version)
-            elif old_version.isdigit():
+            elif str(old_version).isdigit():
                 return str(int(old_version) + 1)
             else:
                 return "0"
         if version_param in user_ns.keys():
             return str(user_ns[version_param])
-        if version_param.isdigit():
-            return version_param
+        if str(version_param).isdigit():
+            return str(version_param)
 
-        print("Version: " + str(version_param))
-        print("version_param.isdigit(): " + str(version_param.isdigit()))
-        raise CacheCallException("Invalid version. It must either be an Integer, *, or the name of a variable")
+        logger.debug("Version: " + str(version_param))
+        logger.debug("version_param.isdigit(): " + str(str(version_param).isdigit()))
+        raise CacheCallException("Invalid version '" + str(version_param) + "'. It must either be an Integer, *, or the name of a variable")
 
     @staticmethod
     def _reconstruct_expression(var_name, var_value):
@@ -260,43 +274,51 @@ class CacheMagic(Magics):
             parameter = self.parse_input(line)
             CacheCall(self.shell)(**parameter)
         except CacheCallException as e:
-            print("Error: " + str(e))
+            logger.error("Error: " + str(e))
             raise e
 
     @staticmethod
     def parse_input(_input):
         result = {}
-        global debug
-
-        params = _input.strip().split(" ")
+        
+        paramString = _input.strip()
+        reading_param = True
         reading_version = False
-        expression_starts_at = 0
-        for p in params:
-            expression_starts_at = expression_starts_at + 1
-            if p == "-v" or p == "--version":
-                reading_version = True
-                continue
-            if reading_version:
-                reading_version = False
-                result["version"] = p
-                continue
-            if p == "-r" or p == "--reset":
-                result["reset"] = True
-                continue
-            if p == "-d" or p == "--debug":
-                debug = True
-                continue
-            if p.startswith("-"):
-                raise CacheCallException("unknown parameter \"" + p + "\"")
-            # if parameters are done the rest is part of the expression
-            expression_starts_at = expression_starts_at - 1
-            break
+        param_starts_at = 0
+        expression_starts_at = len(paramString)
+        
+        for i, ch in enumerate(paramString + " "):
+            if ch == " ":
+                if reading_param:
+                    p = paramString[param_starts_at:i]
+                    reading_param = False
+                    if reading_version:
+                        reading_version = False
+                        result["version"] = p
+                        continue
+                    if p == "-v" or p == "--version":
+                        reading_version = True
+                        continue
+                    if p == "-r" or p == "--reset":
+                        result["reset"] = True
+                        continue
+                    if p == "-d" or p == "--debug":
+                        result["set_debug"] = True
+                        continue
+                    if p.startswith("-"):
+                        raise CacheCallException("unknown parameter \"" + p + "\"")
+                    # if parameters are done the rest is part of the expression
+                    expression_starts_at = param_starts_at
+                    break
+            elif not reading_param:
+                param_starts_at = i
+                reading_param = True
 
         # Everything after the version is the assignment getting cached
-        cmd_str = "".join(params[expression_starts_at:])
+        cmd_str = paramString[expression_starts_at:]
 
         if not "version" in result and not "reset" in result and not cmd_str:
-            # no input (expect debug) --> restore all
+            # no input (expect debug) --> show all
             result["show_all"] = True
 
         try:
@@ -337,5 +359,6 @@ class CacheMagic(Magics):
 try:
     ip = get_ipython()
     ip.register_magics(CacheMagic)
+    logger.warn("%cache magic is now registered in jupyter")
 except:
-    print("Error! Couldn't register cache magic in jupyter.")
+    logger.error("Error! Couldn't register cache magic in jupyter.")

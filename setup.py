@@ -1,7 +1,5 @@
 from setuptools import setup
-
 from codecs import open
-from os import path
 
 # Get the long description from the README file
 long_description = ''
@@ -10,8 +8,6 @@ try:
         long_description = f.read()
 except IOError:
     print("could not locate README")
-    pass
-
 
 setup(
     name='cache-magic',
@@ -22,21 +18,21 @@ setup(
     license='BSD-3-Clause',
     author='Doctor Yazz',
     author_email='doctoryazz@gmail.com',
-    description='Versatile cache line magic for jupyter notebooks, based on https://pypi.org/project/cache-magic/',
+    description='Versatile cache line magic for jupyter notebooks, based on https://pypi.org/project/cache-magic/ and https://pypi.org/project/ipython-cache/',
     classifiers=[
         'Development Status :: 7 - Inactive',
         'Intended Audience :: Developers',
-        'Topic :: Software Development :: Libraries :: Python Modules',
-        'Framework :: Jupyter',
         'Intended Audience :: Science/Research',
-        'License :: Other/Proprietary License',
+        'Topic :: Software Development :: Libraries :: Python Modules',
+        'Topic :: Scientific/Engineering :: Information Analysis',
+        'Framework :: Jupyter',
+        'License :: OSI Approved :: BSD License',
         'Programming Language :: Python :: 3.6',
-        'Programming Language :: Python :: 3.7',
-        'Topic :: Scientific/Engineering :: Information Analysis'
+        'Programming Language :: Python :: 3.7'
     ],
     install_requires=[
         'astunparse',
         'IPython',
         'tabulate'
-    ],
+    ]
 )
