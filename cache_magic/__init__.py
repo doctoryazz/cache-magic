@@ -15,7 +15,9 @@ from tabulate import tabulate
 
 logger = logging.getLogger(__name__)
 if not logger.hasHandlers():
-    logging.getLogger(__name__).addHandler(logging.StreamHandler(stdout))
+    ch = logging.StreamHandler(stdout)
+    ch.setFormatter(logging.Formatter('%(message)s'))
+    logging.getLogger(__name__).addHandler(ch)
 
 
 # ########################### #
@@ -41,7 +43,7 @@ class CacheCall:
         if set_debug:
             logger.setLevel(logging.DEBUG)
         else:
-            logger.setLevel(logging.WARN)
+            logger.setLevel(logging.INFO)
 
         if show_all:
             self._show_all()
@@ -49,11 +51,11 @@ class CacheCall:
 
         if reset:
             if var_name:
-                logger.warn("Resetting cached values for " + var_name)
+                logger.info("Resetting cached value for " + var_name)
                 self._reset_var(var_name)
                 # no return, because it might be a forced recalculation
             else:
-                logger.warn("Resetting entire cache")
+                logger.info("Resetting entire cache")
                 self._reset_all()
                 return
 
@@ -80,7 +82,7 @@ class CacheCall:
 
                 if str(version) == "*":
                     if var_value and str(info["expression_hash"]) != str(var_value).strip():
-                        logger.warn("Expression has changed since last save, which was at " + str(info["store_date"]))
+                        logger.info("Expression has changed since last save, which was at " + str(info["store_date"]))
                         self._reset_var(var_name)
                         load_cache = False
                 elif var_value:
@@ -107,11 +109,11 @@ class CacheCall:
                 if load_cache:
                     try:
                         stored_value = self.get_data_from_file(var_data_path)
-                        logger.warn('Loading cached value for variable \'{0}\'. Time since caching: {1}'
+                        logger.info('Loading cached value for variable \'{0}\'. Time since caching: {1}'
                             .format(str(var_name), str(datetime.datetime.now() - info["store_date"])))
                         user_ns[var_name] = stored_value
                     except IOError:
-                        logger.error("Failed to load cached data for variable '" + str(var_name) + "'")
+                        logger.error("Error: Failed to load cached data for variable '" + str(var_name) + "'")
                         # user_ns[var_name] = None
                         
             except IOError:
@@ -124,7 +126,7 @@ class CacheCall:
         
         if var_value and stored_value is None:
             new_version = self._get_cache_version(version, user_ns, old_version, True)
-            logger.warn('Creating new value for variable \'' + str(var_name) + '\'')
+            logger.info('Creating new value for variable \'' + str(var_name) + '\'')
             self._create_new_value(
                 self.shell,
                 var_data_path,
@@ -175,6 +177,8 @@ class CacheCall:
 
         with open(var_info_path, 'wb') as fp:
             fp.write(pickle.dumps(info))
+        
+        logger.debug('Succesfully cached new value for variable \'' + str(var_name) + '\'')
 
     def _show_all(self):
         base_dir = self.get_base_dir()
@@ -214,8 +218,9 @@ class CacheCall:
                 logger.error("Warning: failed to read info variable '" + var_name + "'")
         total_size = sum(sizes)
         vars.append(['Total Size:', total_size])
-        display(HTML(tabulate(vars, headers=["Var Name", "Size(MB)", "Stored Date", "Version", "Expression"],
-                              tablefmt="html")))
+        table = str(tabulate(vars, headers=["Var Name", "Size(MB)", "Stored Date", "Version", "Expression"],
+                              tablefmt="html")).replace("<table>", "<table class=\"dataframe\">", 1) # adding class attribute for google colab
+        display(HTML(table))
 
     def _reset_all(self):
         base_dir = self.get_base_dir()
@@ -359,6 +364,6 @@ class CacheMagic(Magics):
 try:
     ip = get_ipython()
     ip.register_magics(CacheMagic)
-    logger.warn("%cache magic is now registered in jupyter")
+    logger.info("%cache magic is now registered in jupyter")
 except:
     logger.error("Error! Couldn't register cache magic in jupyter.")
